@@ -51,8 +51,16 @@ def initialize() {
     log.debug("init")
     state.closeAfter=null
     state.currentState="idle"
-    schedule("0 */5 * * * ?", doCheck)
+    schedule("0 */2 * * * ?", doCheck)
     subscribe(door, "door", doorEvent)
+   
+    def doorState=door.currentValue("door")
+    log.debug("door state $doorState")
+    if(doorState == "open") {
+        Date now=new Date()
+        state.closeAfter=now.getTime()+(60*1000*closeAfterMinutes)
+    }
+
     doCheck()
 }
 
@@ -65,8 +73,7 @@ def doorEvent(evt) {
     } else if (evt.value == "open") {
         // someone opened the door, set teh closeAfter Date to now + 10 mins
         Date now=new Date()
-        state.closeAfter=new Date(now.getTime()+(60*state.closeAfterMinutes))
-        log.debug("door opened, close after set to $state.closeAfter")
+        state.closeAfter=now.getTime()+(60*1000*closeAfterMinutes)
     }
 }
 
@@ -76,7 +83,7 @@ def doCheck() {
         return
     }
 
-    log.debug("doCheck")
+    log.debug("doCheck: $state")
 
     def now = new Date()
     def start = timeToday(timeStart, location.timeZone)
@@ -87,13 +94,13 @@ def doCheck() {
         log.debug("in window: state $doorState")
         if(doorState == "open") {
             if(state.currentState=="idle") {
-                if((state.closeAfter == null) || now.after(state.closeAfter)) {
+                if((state.closeAfter == null) || (now.getTime() > state.closeAfter)) {
                     sendPush("Garage door left open, attempting to close")
                     door.close()
                     state.closeAfter = null
                     state.currentState="closing"
                 } else {
-                    log.debug("door is open however we are waiting until we reach the close after time: $now $state.closeAfter")
+                    log.debug("door is open however we are waiting until we reach the close after time")
                 }
             } else {
                 sendPush("Failed to close garage door, please check and close the door")                
