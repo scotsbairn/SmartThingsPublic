@@ -42,8 +42,6 @@ def installed() {
 }
 
 def updated() {
-    unsubscribe()
-    unschedule()
     initialize()
 }
 
@@ -61,7 +59,22 @@ def initialize() {
         state.closeAfter=now.getTime()+(60*1000*closeAfterMinutes)
     }
 
+    initEvents()
+
     doCheck()
+}
+
+def reInitSchedule(evt) {
+    initEvents()
+}
+
+def initEvents() {
+    unschedule()
+    unsubscribe()
+
+    schedule("0 */2 * * * ?", doCheck)
+    subscribe(location, "sunset", reInitSchedule)
+    subscribe(location, "sunrise", reInitSchedule)
 }
 
 def doorEvent(evt) {

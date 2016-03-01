@@ -34,6 +34,9 @@ preferences {
     section("Power Consumption") {
     	input "mpPower", "capability.powerMeter", title: "Powermeter(s)", multiple: true, required: false
 	}
+    section("Battery %") {
+    	input "mpBattery", "capability.battery", title: "Batteries", multiple: true, required: false
+	}
 }
 
 def installed() {
@@ -53,10 +56,10 @@ def updated() {
 
 def initialize() {
     if(mpTemp!=null) {
-        subscribe(mpTemp, "temperature", "handleTempEvent");
+        subscribe(mpTemp, "temperature", "handleTempEvent")
     }
     if(mpPower!=null) {
-        subscribe(mpTemp, "power", "handlePowerEvent");
+        subscribe(mpTemp, "power", "handlePowerEvent")
     }
     doLogging(true)
 }
@@ -147,6 +150,27 @@ def doLogging(forceLog) {
                 dataStr+="{${sensorDataStr}}"
 
                 first=false
+            }
+        }
+    }
+
+    if(mpBattery!=null) {
+        log.debug("log battery power")
+        for(int i=0;i<mpBattery.size();i++) {
+            def sensor=mpBattery[i]
+            def battery=sensor.currentValue('battery')
+            if(battery!=null) {
+
+                def sensorDataStr="\"name\": \"${sensor}\", \"columns\": [\"battery\"], \"points\": [[${battery}]]"
+
+                if(!first) {
+                    dataStr+=","
+                }
+                dataStr+="{${sensorDataStr}}"
+
+                first=false
+            } else {
+                log.debug("battery returned null")
             }
         }
     }

@@ -60,6 +60,7 @@ def initialize() {
     subscribe(lights, "switch.off", turnedOff)
 
     state.currentState="idle"  
+    state.debugInfo=""
 
     log.debug "sensors: $motionSensors"
     
@@ -103,21 +104,27 @@ def motionHandler(evt) {
 		    log.debug "motion detected, current state idle, dark, turn on lights, move to active state"
 			state.currentState = "active"
 		    lights.on()
+            state.debugInfo="motion, turn on state:" + motionSensors.currentValue("motion")
 		  } else {
 			log.debug "motion detected, however not dark, do nothing"
+            state.debugInfo="motion, but not dark"
 		  }
 		} else {
 		  log.debug "motion but not idle"
+          state.debugInfo="motion, already on"
 		}
 	  } else {
 		log.debug "motion lights are disabled in app preferences"
+        state.debugInfo="motion, but disabled"
       }
     } else {
       if(state.currentState == "active") {
 	    log.debug "scheduled off time $delayMinutes"
+        state.debugInfo="no motion, schedule off"
 	    runIn(delayMinutes*60, turnOffHandler)
       } else {
 	    log.debug "no motion but state not active"
+        state.debugInfo="no motion, but not active"
       }
     }
     log.debug "new state: $state"
@@ -126,6 +133,8 @@ def motionHandler(evt) {
 
 def turnOffHandler() {
     log.debug "turnOffHandler"
+    state.debugInfo="turnOffHandler $state.currentState"
+
     if(state.currentState == "active") {
         log.debug "turning off lights"
         lights.off()

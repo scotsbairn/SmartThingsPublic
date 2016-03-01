@@ -18,7 +18,7 @@ definition(
     namespace: "sbairn",
     author: "Eric Chesters",
     description: "Smart turn things off at night",
-    category: "",
+    category: "Convenience",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
     iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
@@ -40,114 +40,102 @@ preferences {
     }
     section("For..."){
         input "delayMinutes", "number", title: "Minutes?"
-    }
-     
-
+    }     
 }
 
 def installed() {
 	log.debug "Installed with settings: ${settings}"
-
 	initialize()
 }
 
 def updated() {
 	log.debug "Updated with settings: ${settings}"
-
-	unsubscribe()
-    unschedule()
-
 	initialize()
 }
 
 def initialize() {
+    state.turnOffAfter=null
 
-	state.active=false
+    Date now=new Date()        
+    state.turnOffAfter=now.getTime()+(60*1000*delayMinutes)         
+    state.lastCheck=now.getTime();
+    
+    initEvents()
 
-    schedule(timeStart, startTimeReached)
-    schedule(timeEnd, endTimeReached)
+    doCheck()
+}
 
+def reInitSchedule(evt) {
+    initEvents()
+
+    doCheck()
+}
+
+def initEvents() {
+	unsubscribe()
+    unschedule()
+
+    schedule("0 */5 * * * ?", doCheck)
     subscribe(motionSensors, "motion", motionHandler)
 
-    if(isEnabledBool!=null && isEnabledBool) {
-        def timeOfDay_start = timeToday(timeStart).time
-        def timeOfDay_end = timeToday(timeEnd).time
-        if(timeOfDay_end<timeOfDay_start) {
-            timeOfDay_end=(timeToday(timeEnd)+1).time
-        }
-        def currTime = now()
-    
-        log.debug "times: $timeOfDay_start $timeOfDay_end $currTime"
-
-        if((currTime>timeOfDay_start) && (currTime<timeOfDay_end)) {
-            log.debug "within window, start"
-            state.active=true
-            handleEvent()           
-        }
-
-    }
+    subscribe(location, "sunset", reInitSchedule)
+    subscribe(location, "sunrise", reInitSchedule)
 }
-
-def startTimeReached(evt) {
-    log.debug "start time reached: $state"
-    if(isEnabledBool!=null && isEnabledBool) {
-        state.active=true
-        handleEvent()
-    }
-}
-
-
-def endTimeReached(evt) {
-    // we've reached the end window, make sure we are not active
-    log.debug "end time reached: $state"
-    if(state.active) {
-        state.active=false
-    }
-}
-
 
 def motionHandler(evt) {
-    log.debug "$evt"
-    handleEvent()
+    Date now=new Date()        
+
+    state.turnOffAfter=now.getTime()+(60*1000*delayMinutes)         
+    log.debug("set turnOffAfter set to $state.turnOffAfter")
+    
+    if(state.lastCheck==null) {
+        state.lastCheck=now.getTime()
+    } else {
+        if(now.getTime() > (state.lastCheck+(60*1000*15))) {
+            log.debug("last check not seen within 15 minuts, init the events")
+            initEvents()
+        }
+    }
 }
 
 
-def handleEvent() {
+def doCheck() {
+    def now = new Date()
+    state.lastCheck=now.getTime();
 
-    if(!state.active) {
+    if(!isEnabledBool) {
+        log.debug("disabled, skipping doCheck")
         return
     }
 
-    def switchesOn=turnOff.currentValue("switch").contains("on")    
+    log.debug("doCheck: $state")
 
-    if(switchesOn) {
-        def motionState=motionSensors.currentValue("motion")
-        def motionActive=motionState.contains("active")
-        
-        log.debug "motion: $motionState $motionActive"
+    def start = timeToday(timeStart, location.timeZone)
+    def end = timeTodayAfter(timeStart,timeEnd, location.timeZone)
 
-        if(motionActive) {
-            // cancel any pending timerEvent
-            log.debug "motion detected, cancel timerEvent"
-            unschedule("timerEvent")            
+    if(now.after(start) && now.before(end)) {
+        def switchesOn=turnOff.currentValue("switch").contains("on")    
+
+        log.debug("in window: state $switchesOn")
+
+        if(switchesOn) {
+            def motionState=motionSensors.currentValue("motion")
+            def motionActive=motionState.contains("active")
+
+            log.debug "motion: $motionState $motionActive"
+
+            if(motionActive) {
+                log.debug "motion detected, do nothing"
+            } else {
+                if((state.turnOffAfter == null) || (now.getTime() > state.turnOffAfter)) {
+                    log.debug "no motion detected and after the turnOffAfter time, turn the switches off"
+                    turnOff.off()
+                }
+            }
         } else {
-            log.debug "no motion detected, schedule a timerEvent"
-            runIn(delayMinutes*60,timerEvent)            
+            log.debug "all switches are turned off, we are done for now"
         }
     } else {
-        log.debug "all switches have been turned off, we are done for now"
-        unschedule("timerEvent") 
-        state.active=false
+        log.debug("out of window, don't check")        
     }
 }
-
-def timerEvent() {
-    log.debug "timer event fired"
-
-    if(state.active) {
-        log.debug "turn the switches off and return to non-active: $turnOff"
-        turnOff.off()
-        state.active=false        
-    }
-}
-
