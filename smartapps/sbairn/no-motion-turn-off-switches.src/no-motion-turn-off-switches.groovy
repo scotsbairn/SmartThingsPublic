@@ -72,6 +72,7 @@ def reInitSchedule(evt) {
 }
 
 def initEvents() {
+    log.debug "initEvents:"
 	unsubscribe()
     unschedule()
 
@@ -86,13 +87,13 @@ def motionHandler(evt) {
     Date now=new Date()        
 
     state.turnOffAfter=now.getTime()+(60*1000*delayMinutes)         
-    log.debug("set turnOffAfter set to $state.turnOffAfter")
+    log.debug("motionHandler: set turnOffAfter set to $state.turnOffAfter")
     
     if(state.lastCheck==null) {
         state.lastCheck=now.getTime()
     } else {
         if(now.getTime() > (state.lastCheck+(60*1000*15))) {
-            log.debug("last check not seen within 15 minuts, init the events")
+            log.debug("motionHandler: last check not seen within 15 minutes, init the events")
             initEvents()
         }
     }
@@ -104,7 +105,7 @@ def doCheck() {
     state.lastCheck=now.getTime();
 
     if(!isEnabledBool) {
-        log.debug("disabled, skipping doCheck")
+        log.debug("doCheck: disabled, skipping doCheck")
         return
     }
 
@@ -116,26 +117,28 @@ def doCheck() {
     if(now.after(start) && now.before(end)) {
         def switchesOn=turnOff.currentValue("switch").contains("on")    
 
-        log.debug("in window: state $switchesOn")
+        log.debug("doCheck: in window: state $switchesOn")
 
         if(switchesOn) {
             def motionState=motionSensors.currentValue("motion")
             def motionActive=motionState.contains("active")
 
-            log.debug "motion: $motionState $motionActive"
+            log.debug "doCheck: motion: $motionState $motionActive"
 
             if(motionActive) {
-                log.debug "motion detected, do nothing"
+                log.debug "doCheck: motion detected, do nothing"
             } else {
                 if((state.turnOffAfter == null) || (now.getTime() > state.turnOffAfter)) {
-                    log.debug "no motion detected and after the turnOffAfter time, turn the switches off"
+                    log.debug "doCheck: no motion detected and after the turnOffAfter time, turn the switches off"
                     turnOff.off()
+                } else {
+                    log.debug "doCheck: not reached turnOffAfter time yet"
                 }
             }
         } else {
-            log.debug "all switches are turned off, we are done for now"
+            log.debug "doCheck: all switches are turned off, we are done for now"
         }
     } else {
-        log.debug("out of window, don't check")        
+        log.debug("doCheck: out of window, don't check")        
     }
 }

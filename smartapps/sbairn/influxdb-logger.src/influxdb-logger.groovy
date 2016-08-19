@@ -112,11 +112,19 @@ def doLogging(forceLog) {
     unschedule("doLogging")
 
     log.debug "prepare logging update"
+    runIn(5, logTemp)
+}
+
+def logTemp() {
+    log.debug "logTemp:"
+  
+    runIn(5, logPower)
 
     def dataStr=""
 
     boolean first=true    
     if(mpTemp!=null) {
+        log.debug("logTemp: temperature sensors defined")
         for(int i=0;i<mpTemp.size();i++) {
             def sensor=mpTemp[i]
             def temp=sensor.currentValue('temperature')
@@ -124,7 +132,7 @@ def doLogging(forceLog) {
                 //log.debug "temp sensor $sensor = $temp"
 
                 def sensorDataStr="\"name\": \"${sensor}\", \"columns\": [\"temp\"], \"points\": [[${temp}]]"
-                //log.debug "sensorDataStr: ${sensorDataStr}"
+                log.debug "sensorDataStr: ${sensorDataStr}"
 
                 if(!first) {
                     dataStr+=","
@@ -135,14 +143,31 @@ def doLogging(forceLog) {
             }
         }
     }
+    if(dataStr!="") {
+        def pushStr="["+dataStr+"]"
+        log.debug "push data via logger device: ${pushStr}"
+        return logger.pushData(pushStr)
+    }
+}
+
+def logPower() {
+    log.debug "logPower:"
+    runIn(5, logBattery)
+
+    def dataStr=""
+
+    boolean first=true    
 
     if(mpPower!=null) {
+        log.debug("logPower: power meters defined")
+
         for(int i=0;i<mpPower.size();i++) {
             def sensor=mpPower[i]
             def power=sensor.currentValue('power')
             if(power!=null) {
 
                 def sensorDataStr="\"name\": \"${sensor}\", \"columns\": [\"power\"], \"points\": [[${power}]]"
+                log.debug "sensorDataStr: ${sensorDataStr}"
 
                 if(!first) {
                     dataStr+=","
@@ -153,16 +178,31 @@ def doLogging(forceLog) {
             }
         }
     }
+    if(dataStr!="") {
+        def pushStr="["+dataStr+"]"
+        log.debug "push data via logger device: ${pushStr}"
+        return logger.pushData(pushStr)
+    }
+}
+
+def logBattery() {
+    log.debug "logBattery:"
+  
+    def dataStr=""
+
+    boolean first=true    
 
     if(mpBattery!=null) {
-        log.debug("log battery power")
+        log.debug("logBattery: batteries defined")
         for(int i=0;i<mpBattery.size();i++) {
             def sensor=mpBattery[i]
             def battery=sensor.currentValue('battery')
+
             if(battery!=null) {
 
                 def sensorDataStr="\"name\": \"${sensor}\", \"columns\": [\"battery\"], \"points\": [[${battery}]]"
-
+                log.debug "sensorDataStr: ${sensorDataStr}"
+                
                 if(!first) {
                     dataStr+=","
                 }

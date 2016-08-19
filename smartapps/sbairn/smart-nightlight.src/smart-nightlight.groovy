@@ -62,7 +62,8 @@ def initialize() {
     state.currentState="idle"  
     state.debugInfo=""
 
-    log.debug "sensors: $motionSensors"
+    log.debug "sensors: $motionSensors" + motionSensors.currentValue("motion")
+    log.debug "lights: $lights" + lights.currentValue("switch")
     
   	if(isEnabledBool!=null) {
     	log.debug "smart night light enabled $isEnabledBool"
@@ -95,7 +96,8 @@ def motionHandler(evt) {
     def lightsOn=lights.currentValue("switch").contains("on")
     def motion=motionSensors.currentValue("motion").contains("active")
 
-    log.debug "lightsOn $lightsOn motion $motion enabled $isEnabledBool state $state"
+    log.debug "motionHandler: switches:" + lights.currentValue("switch") + " motion: " + motionSensors.currentValue("motion")
+    log.debug "motionHandler: lightsOn $lightsOn motion $motion enabled $isEnabledBool state $state"
 
     if(motion) {
       if(isEnabledBool!=null && isEnabledBool) {
